@@ -1,0 +1,13 @@
+services:
+  app:
+    build: .
+    container_name: eleum-tracker
+    restart: unless-stopped
+    volumes:
+      - ./data:/app/data  # Keeps your SQLite database persistent on the host
+    networks:
+      - webnetwork
+
+networks:
+  webnetwork:
+    external: true

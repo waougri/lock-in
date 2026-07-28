@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lock-In Metrics Tracker</title>
+    <!-- Tailwind CSS static file using url_for -->
+    <link rel="stylesheet" href="{{ url_for('static', path='final.css') }}">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body class="bg-slate-50 text-slate-900 min-h-screen">
+
+    <div class="max-w-7xl mx-auto px-4 py-8">
+        <!-- Header & Action Button -->
+        <div class="flex justify-between items-center mb-8">
+            <div>
+                <h1 class="text-3xl font-bold tracking-tight">Metrics Dashboard</h1>
+                <p class="text-slate-500 text-sm mt-1">Track your physical progress and body composition over time.</p>
+            </div>
+            <button onclick="openModal()" class="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-medium px-4 py-2.5 rounded-xl shadow-sm transition-all cursor-pointer">
+                <i data-lucide="plus" class="w-5 h-5"></i>
+                Log Metrics
+            </button>
+        </div>
+
+        <!-- Charts Grid -->
+        <div id="charts-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+    </div>
+
+    <!-- Log Metrics Modal / Form Drawer -->
+    <div id="logModal" style="display: none;" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-2xl shadow-xl max-w-lg w-full p-6 relative">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-bold">New Measurement</h2>
+                <button type="button" onclick="closeModal()" class="text-slate-400 hover:text-slate-600 cursor-pointer">
+                    <i data-lucide="x" class="w-6 h-6"></i>
+                </button>
+            </div>
+
+            <form id="metricsForm" action="/log" method="POST" class="space-y-4">
+                <div id="form-fields" class="grid grid-cols-2 gap-4">
+                    <!-- Form fields dynamically injected based on keys -->
+                </div>
+                <div class="flex justify-end gap-3 pt-4">
+                    <button type="button" onclick="closeModal()" class="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-xl cursor-pointer">Cancel</button>
+                    <button type="submit" class="px-4 py-2 text-sm font-medium bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-sm cursor-pointer">Save Record</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        // Initialize Lucide icons
+        lucide.createIcons();
+
+        const rawData = {{ rows | safe }};
+        const keys = ["weight", "waist_circ", "chest_circ", "bicep_circ", "hip_circ", "p_len"];
+        const container = document.getElementById('charts-container');
+        const formFieldsContainer = document.getElementById('form-fields');
+
+        // 1. Always build the modal form fields, regardless of data length
+        keys.forEach(key => {
+            const fieldDiv = document.createElement('div');
+            fieldDiv.className = "flex flex-col gap-1";
+            fieldDiv.innerHTML = `
+                <label class="text-xs font-medium text-slate-600 uppercase">${key.replace('_', ' ')}</label>
+                <input type="number" step="any" name="${key}" required class="px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm">
+            `;
+            formFieldsContainer.appendChild(fieldDiv);
+        });
+
+        // 2. Build charts only if we have data
+        if (rawData && rawData.length > 0) {
+            const labels = rawData.map(item => item.measured_at.split('T')[0]);
+
+            keys.forEach(key => {
+                const card = document.createElement('div');
+                card.className = "bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex flex-col";
+
+                const title = document.createElement('h3');
+                title.className = "text-sm font-semibold text-slate-700 uppercase tracking-wider mb-3";
+                title.innerText = key.replace('_', ' ');
+                card.appendChild(title);
+
+                const wrapper = document.createElement('div');
+                wrapper.className = "relative h-64 w-full";
+
+                const canvas = document.createElement('canvas');
+                canvas.id = key;
+                wrapper.appendChild(canvas);
+                card.appendChild(wrapper);
+                container.appendChild(card);
+
+                const metricData = rawData.map(item => item[key]);
+                new Chart(canvas, {
+                    type: 'line',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: key,
+                            data: metricData,
+                            borderColor: '#6366f1',
+                            backgroundColor: 'rgba(99, 102, 241, 0.05)',
+                            borderWidth: 2,
+                            fill: true,
+                            tension: 0.2
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: {
+                            y: { beginAtZero: false, grid: { color: '#f1f5f9' } },
+                            x: { grid: { display: false } }
+                        }
+                    }
+                });
+            });
+        } else {
+            // Fallback message if no data exists yet
+            container.innerHTML = `
+                <div class="col-span-full text-center py-12 bg-white rounded-2xl border border-slate-100 shadow-sm">
+                    <p class="text-slate-500 text-sm">No measurements logged yet. Click "Log Metrics" to add your first entry!</p>
+                </div>
+            `;
+        }
+
+        function openModal() {
+            const modal = document.getElementById('logModal');
+            modal.style.display = 'flex';
+        }
+
+        function closeModal() {
+            const modal = document.getElementById('logModal');
+            modal.style.display = 'none';
+        }
+    </script>
+</body>
+</html>
